@@ -1,2 +1,16 @@
-# Gold_Nanowires
-Image Processing Informationn for Gold Nanowires Manuscript
+Image Processing for Templated Gold Nanowires Manuscript
+
+# Purpose
+To analyze AFM images of nanowires on surfaces by characterizing the length, curvature, relative orientations, and producing images similar to the original, without the noise and without the curved wires, to illustrate how the wires behave on the surface. 
+
+## How it works
+The script included is designed to be used with many outputs of the ImageJ Ridge detection plugin, found here (https://imagej.net/Ridge_Detection), and the few other minor scripts that pre-process that output into something that's parseable by R. R then does the rest of the processing and outputs 3 files for future analysis in other software (or in R, if you want to modify the script), and two images: the before and after of removing highly curved wires from the dataset for orientation calculations. This script will do this for an entire directory, to ease the burden on the user, especially after needing to do the ridge-detection in a supervised manner.
+
+## How to install it.
+Be sure to have R (including ggplot2, readr, and dplyr installed), along with bash, awk, and sed. For Linux and Mac users, everything but R and it's sub-dependencies should be included on your system already. For windows users, you should install R and the sub-dependencies and something similar to the Cygwin terminal emulator linked here. https://cygwin.com/ Finally, for all operating systems, put both the wires and batchcsv scripts into your $PATH directory (or the windows equivalent) so it is easily accessible from the terminal/cygwin.
+
+## How to use it
+Assuming you have already produced the proper CSV files from the Ridge Detection plugin in ImageJ and they are all in the same directory (will explain in detail later), first run the "batchcsv" script to prune the files down to a manageable, 3-column layout, containing only the Contour_ID, X and Y variables. Then run the "wires" script in the same directory.  A sample set of data has been included for convenience, as well as the relevant output, so you can test it yourself.
+
+### How to use the ImageJ Ridge Detection Algorithm.
+Although this section is technically out of the scope of this README, I thought I should include a brief primer on this plugin in case any future users have had any difficulty getting the plugin to work properly (as I did initially). The first note I want to make clear, is that as useful as the Preview function is, only have that box ticked AFTER you have set all the parameters you want to verify. If you attempt to change parameters without unchecking the Preview box, it will likely cause the whole program to halt for quite a while. With that out of the way, the primary parameters you should be adjusting are the sigma, upper threshold and lower threshold. If the image you are trying to process has blurry or difficult to distinguish features, be sure to reduce the lower threshold to a value that detects a majority of the features without causing false-positive recognition. A way to correct these false positives; however, is to specify maximum and minimum contour lengths to prevent features that are too small or too large compared to what you actually see on the surface. If you try changing the upper and lower thresholds to no avail, try adjusting the line width parameter to a value that is more similar to the scale of the features you are trying to observe, and repeat the process of adjusting the thresholds/lengths if necessary.

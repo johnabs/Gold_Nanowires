@@ -1,0 +1,186 @@
+#This script does a number of things, specifically it produces an individual R file for each CSV, then processes all the R files.
+#This may seem inefficient; however, it makes processing the data much faster as we do not use as much RAM to load all the data 
+#simultaneously.
+
+#This initial bash part basically says that for each .csv file, we are going to cat out an R file with a given name, that contains 
+#the R script.
+for entry in "$PWD"/*.csv
+do
+ ext=".R"
+ name=$(basename "$entry")
+ filename="${name%.*}"
+ cat <<EOC > $filename$ext
+#This bit tells R to be quiet when doing the processing so it doesn't fill up your terminal with needless garbage.
+options(warnings=-1)
+sink("/dev/null")
+suppressMessages(library(readr))
+suppressMessages(library(dplyr))
+suppressMessages(library(ggplot2))
+
+#Fairly self explanatory, the euclidean distance between two points
+euc.dist<-function(x1,x2) sqrt(sum((x1-x2)^2))
+
+#This function gets the length of a specific index of our large list of lines. Is used later.
+vec0<-function(l){
+	temp=0 
+	currmax=0
+	sum=0
+	tempcoord=c(c(0,0),c(0,0))
+	for(i in 1:(length(l)-1)){
+	    for(j in 2:length(l)){   
+	        temp=euc.dist(l[[i]],l[[j]])
+	        if(j==i+1){
+	        sum=sum+temp   
+	        }
+	        if(temp>currmax){
+	            currmax=temp
+	         }
+	    }
+	}
+	return(sum)  
+}
+
+
+#This function calculates the curvature (mapped to a scale of 0-1) of a specific index of our large list of lines. 
+vec<-function(l){
+	temp=0 
+	currmax=0
+	sum=0
+	tempcoord=c(c(0,0),c(0,0))
+	for(i in 1:(length(l)-1)){
+	    for(j in 2:length(l)){   
+	        temp=euc.dist(l[[i]],l[[j]])
+	        if(j==i+1){
+	        sum=sum+temp   
+	        }
+	        if(temp>currmax){
+	            currmax=temp
+	         }
+	    }
+	}
+	return((sum/currmax-1)/(pi-1))  
+}
+
+
+#This function determines the representative vector (normalized) of a specific index of our large list of lines. 
+vec2<-function(l){
+    temp=0 
+    currmax=0
+    sum=0
+    tempcoord=c(0,0)
+    for(i in 1:(length(l)-1)){
+        for(j in 2:length(l)){   
+            temp=euc.dist(l[[i]],l[[j]])
+            if(j==i+1){
+                sum=sum+temp   
+            }
+            if(temp>currmax){
+                currmax=temp
+                tempcoord=l[[i]]-l[[j]]
+                tempcoord=tempcoord/sqrt(sum(tempcoord^2))
+            }
+        }
+    }
+    return(tempcoord)  
+}
+
+#This function calculates the curvature as defined above for our entire list of lines 
+curvature<-function(l){
+    curvvec=vector()
+    for(i in 1:length(l)){
+        curvvec<-c(curvvec,vec(l[[i]]))
+    }
+    return(curvvec)
+}
+
+
+#This function calculates the length for our entire list of lines 
+wire.len<-function(l){
+    lenvec=vector()
+    for(i in 1:length(l)){
+        lenvec<-c(lenvec,vec0(l[[i]]))
+    }
+    m=mean(lenvec)/170
+    s=sd(lenvec)/170
+    return(c("Mean/SD in um",m,s))
+}
+
+
+#This function calculates the relative orientation of the wires to a basis for our entire list of lines 
+orientation<-function(l){
+    angvec=vector()
+    startvec=list()
+    for(i in 1:length(l)){
+        tem=vec2(l[[i]])
+        startvec[[i]]=c(tem[1],tem[2])
+        
+    }
+    basis=startvec[[1]]
+    print(paste("The basis vector is", basis))
+    for(i in 2:length(startvec)){
+        angvec<-c(angvec,acos(startvec[[i]]%*%basis)*180/pi)
+    }
+    return(angvec)
+}
+
+suppressMessages(df<-read_csv("$filename.csv"))
+
+#This main function imports the data, and processes our list into something manageable. A list of lists defined by Contour_ID 
+values=unique(df[1])
+l=list()
+for(i in 1:length(values[[1]]))
+{
+temp=filter(df, Contour_ID==values[[1]][i])
+obj=list()
+for(j in 1:nrow(temp))
+{
+    obj[[j]]=c(temp\$X[j],temp\$Y[j])   
+    
+}
+l[[i]]=obj
+}
+
+#These two formulas calculate the line density and pixel density per micron.
+density1=(length(l))/(max(df\$X)^2)*170^2
+density2=(length(df\$X))/(512^2)
+
+lc<-curvature(l)
+#These commands discriminate and sort the unoriented and oriented wires.
+l_straight<-l[-which(lc>0.05)]
+l_curved<-l[which(lc>=0.05)]
+
+#These unlist commands turn the list of lines into coordinates to be plotted
+x1=unlist(l_straight)[seq_along(unlist(l_straight)) %% 2 > 0]
+y1=unlist(l_straight)[seq_along(unlist(l_straight)) %% 2 == 0]
+x2=unlist(l_curved)[seq_along(unlist(l_curved)) %% 2 > 0]
+y2=unlist(l_curved)[seq_along(unlist(l_curved)) %% 2 == 0]
+
+#full_plot is a plot of all the wires, straight_plot is a plot with the curved lines removed.
+full_plot=ggplot()+geom_point(aes(x=x1,y=y1), size=0.01)+geom_point(aes(x=x2,y=y2), size=0.25, color="red")+xlim(0,512)+ylim(512,0)+theme_bw()+theme(panel.grid = element_blank())+xlab("")+ylab("")
+straight_plot=ggplot()+geom_point(aes(x=x1,y=y1), size=0.01)+xlim(0,512)+ylim(512,0)+theme_bw()+theme(panel.grid = element_blank())+xlab("")+ylab("")
+
+#The orientations are only calculated for the lines that are not curved excessively, the rest of the outputs are calculated and written.
+angles=orientation(l_straight)
+lengths=wire.len(l)
+angles<-c("${filename}_Angle_Distribution",angles)
+out<-c("$filename",density1,density2)
+ggsave("${filename}_full.png", plot=full_plot, width=3.5, height=3.5, units="in")
+ggsave("${filename}_straight.png", plot=straight_plot, width=3.5, height=3.5, units="in")
+write.table(out, "$filename.out", col.names=FALSE, row.names=c("Name","Lines per um","Pixel Density"), sep=",")
+write(angles, file="${filename}.out2",ncolumns=1)
+write(lengths, file="${filename}.out3",ncolumns=1)
+sink()
+EOC
+done
+
+#Finally, after writing that file for each data-set, this part of the script proceeds to execute the scripts. Please note, the comments above are not written into the files upon their production, so reading the outputs of this script may be confusing.
+
+for entry in "$PWD"/*.R
+do
+ name=$(basename "$entry")
+ filename="${name%.*}"
+ Rscript --vanilla $filename.R
+done
+
+#Finally, we remove all the intermediate .R files and are left with only the inputs and the outputs.
+rm *.R

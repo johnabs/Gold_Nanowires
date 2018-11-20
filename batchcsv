@@ -1,0 +1,8 @@
+#This function just deletes irrelevant information from the CSV given by the ImageJ Ridge Detection Plugin
+for entry in "$PWD"/*.csv
+do 
+ ext=".rmd"
+ name=$(basename "$entry")
+ filename="${name%.*}"
+ awk -F , '{sep=","; printf "%s%s%s%s%s\n",$3,sep,$5,sep,$6}' $filename.csv | sed "s/ /_/g" > "$filename.tmp" && mv "$filename.tmp" "$filename.csv"
+done

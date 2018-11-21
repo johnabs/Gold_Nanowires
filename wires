@@ -102,7 +102,7 @@ wire.len<-function(l){
     }
     m=mean(lenvec)/170
     s=sd(lenvec)/170
-    return(c("Mean/SD in um",m,s))
+    return(c("${filename}_Lengths",m,s))
 }
 
 
@@ -163,10 +163,10 @@ straight_plot=ggplot()+geom_point(aes(x=x1,y=y1), size=0.01)+xlim(0,512)+ylim(51
 angles=orientation(l_straight)
 lengths=wire.len(l)
 angles<-c("${filename}_Angle_Distribution",angles)
-out<-c("$filename",density1,density2)
+out<-c("${filename}_Densities_(line_pixel)",density1,density2)
 ggsave("${filename}_full.png", plot=full_plot, width=3.5, height=3.5, units="in")
 ggsave("${filename}_straight.png", plot=straight_plot, width=3.5, height=3.5, units="in")
-write.table(out, "$filename.out", col.names=FALSE, row.names=c("Name","Lines per um","Pixel Density"), sep=",")
+write(out, file="${filename}.out",ncolumns=1)
 write(angles, file="${filename}.out2",ncolumns=1)
 write(lengths, file="${filename}.out3",ncolumns=1)
 sink()

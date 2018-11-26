@@ -127,7 +127,12 @@ boundary<-function(li){
         }
     }
     h=hist(li,plot=FALSE,breaks=seq(-90,90,by=10))
+	if(length(which(max(h\$counts)==h\$counts))>1){
+		dist=(which(max(h\$counts)==h\$counts)[[1]]+9)%%18
+	}	
+	else{
     dist=(which(max(h\$counts)==h\$counts)+9)%%18
+	}
     h\$counts=shift.circ(h\$counts,dist)
     l=list()
     return(h\$counts)
@@ -146,7 +151,14 @@ orientation<-function(l){
     }
     basis=startvec[[1]]
     for(i in 2:length(startvec)){
-        angvec<-c(angvec,acos(startvec[[i]]%*%basis)*180/pi)
+	temp=acos(startvec[[i]]%*%basis)*180/pi
+	if(is.nan(temp))
+	{
+        angvec<-c(angvec,0)
+	}
+	else{
+        angvec<-c(angvec,temp)
+	}
     }
     return(angvec)
 }
@@ -188,7 +200,6 @@ full_plot=ggplot()+geom_point(aes(x=x1,y=y1), size=0.01)+geom_point(aes(x=x2,y=y
 straight_plot=ggplot()+geom_point(aes(x=x1,y=y1), size=0.01)+xlim(0,512)+ylim(512,0)+theme_bw()+theme(panel.grid = element_blank())+xlab("")+ylab("")
 
 #The orientations are only calculated for the lines that are not curved excessively, the rest of the outputs are calculated and written.
-sink()
 angles=orientation(l_straight)
 lengths=wire.len(l)
 binned_angles<-boundary(angles)
@@ -198,6 +209,7 @@ ggsave("${filename}_straight.png", plot=straight_plot, width=3.5, height=3.5, un
 write(out, file="${filename}.out",ncolumns=1)
 write(c("${filename}_Bins (-90:90)",binned_angles), file="${filename}.out2",ncolumns=1)
 write(lengths, file="${filename}.out3",ncolumns=1)
+sink()
 EOC
 done
 
